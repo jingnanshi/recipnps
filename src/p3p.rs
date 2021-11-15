@@ -1,6 +1,7 @@
 use nalgebra as na;
 use roots;
 use roots::Roots;
+use super::solution::Solution;
 
 /// Run Grunert's P3P solver.
 ///
@@ -12,7 +13,7 @@ use roots::Roots;
 /// 331-356.
 ///
 /// # Example
-fn grunert(p_w: &na::Matrix3<f64>, p_i: &na::Matrix3<f64>) -> i64 {
+fn grunert(p_w: &na::Matrix3<f64>, p_i: &na::Matrix3<f64>) -> Vec<Solution> {
     // Note: notation follows paper:
     // Haralick, Bert M., et al. "Review and analysis of solutions of the three point perspective
     // pose estimation problem." International journal of computer vision 13.3 (1994): 331-356.
@@ -76,7 +77,6 @@ fn grunert(p_w: &na::Matrix3<f64>, p_i: &na::Matrix3<f64>) -> i64 {
     };
 
     let all_roots = roots::find_roots_quartic(a4, a3, a2, a1, a0);
-    let mut all_vs : roots::Roots<f64>;
     let mut num_roots = 0;
     match all_roots {
         roots::Roots::Four(x) => {
@@ -102,15 +102,19 @@ fn grunert(p_w: &na::Matrix3<f64>, p_i: &na::Matrix3<f64>) -> i64 {
         _ => {num_roots = 0;}
     }
 
-    return 42;
+    let rotation = na::Matrix3::<f64>::zeros();
+    let translation = na::Vector3::<f64>::zeros();
+    let result = Solution { rotation: rotation, translation: translation};
+    let results = vec![result];
+    return results;
 }
 
-fn fischler(p_w: &na::Matrix3<f64>, p_i: &na::Matrix3<f64>) -> i64 {
-    return 42;
+fn fischler(p_w: &na::Matrix3<f64>, p_i: &na::Matrix3<f64>) -> Vec<Solution> {
+    unimplemented!();
 }
 
-fn kneip(p_w: &na::Matrix3<f64>, p_i: &na::Matrix3<f64>) -> i64 {
-    return 42;
+fn kneip(p_w: &na::Matrix3<f64>, p_i: &na::Matrix3<f64>) -> Vec<Solution> {
+    unimplemented!();
 }
 
 #[cfg(test)]
