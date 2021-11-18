@@ -3,6 +3,50 @@ use roots;
 use roots::Roots;
 use super::solution::Solution;
 
+/// Run Arun's method to solve for rigid body transformation:
+/// p = R * p_prime + t
+/// where p and p_prime are 3x3 matrices with each column represent one 3D point
+fn arun(p: na::Matrix3<f64>, p_prime: na::Matrix3<f64>) -> (na::Matrix3<f64>, na::Vector3<f64>) {
+    // find centroids
+    let p_centroid = p.column_mean();
+    let p_prime_centroid = p_prime.column_mean();
+
+    // calculate the vectors from centroids
+    let mut q = p;
+    for (i, mut column) in q.column_iter_mut().enumerate() {
+        column -= &p_centroid;
+    }
+    let mut q_prime = p_prime;
+    for (i, mut column) in q_prime.column_iter_mut().enumerate() {
+        column -= &p_prime_centroid;
+    }
+
+    // rotation estimation
+    let mut H = na::Matrix3::<f64>::zeros();
+    for i in 0..3 {
+        let q_i = q.column(i);
+        let q_prime_i = q_prime.column(i);
+        H += q_i * q_prime_i.transpose();
+    };
+    let H_svd = H.svd(true, true);
+    match (H_svd.v_t, H_svd.u) {
+        (Some(v_t), Some(u)) => {
+            let V = v_t.transpose();
+            let U_transpose = u.transpose();
+            let diagonal = na::Matrix3::<f64>::from_diagonal(
+                &na::Vector3::<f64>::new(1.0, 1.0, V.determinant() * U_transpose.determinant()));
+            let R: na::Matrix3<f64> = V * diagonal * U_transpose;
+
+            // translation estimation
+            let t = p_prime_centroid - R * p_centroid;
+
+            return (R, t);
+        }
+        _ => panic!("SVD failed in Arun's method.")
+    }
+}
+
+
 /// Run Grunert's P3P solver.
 ///
 /// Take in 3D points in the world frame, and calibrated bearing vectors.
@@ -61,19 +105,19 @@ fn grunert(p_w: &na::Matrix3<f64>, p_i: &na::Matrix3<f64>) -> Vec<Solution> {
         - (1.0 - (a_sq_plus_c_sq_div_b)) * cos_alpha * cos_gamma);
     let a0 = (1.0 + a_sq_minus_c_sq_div_b).powf(2.0) - 4.0 * a_sq / b_sq * cos_gamma_sq;
 
-    let get_points_in_cam_frame_from_v  = | v : f64 | {
+    let get_points_in_cam_frame_from_v = |v: f64| -> na::Matrix3<f64>{
+        // return a 3x3 matrix, with each column represent 1 point
         // calculate u
         let u = ((-1.0 + a_sq_minus_c_sq_div_b) * v.powf(2.0)
             - 2.0 * (a_sq_minus_c_sq_div_b) * cos_beta * v + 1.0 + a_sq_minus_c_sq_div_b)
-            /(2.0*cos_gamma - v * cos_alpha);
+            / (2.0 * cos_gamma - v * cos_alpha);
         // calculate s1, s2, s3
         let s1 = c_sq / (1.0 + u.powf(2.0) - 2.0 * u * cos_gamma).sqrt();
         let s2 = u * s1;
         let s3 = v * s1;
         // calculate the positions of p1, p2, p3 in camera frame
-        let p1_cam = s1 * &j1;
-        let p2_cam = s2 * &j2;
-        let p3_cam = s3 * &j3;
+        let p_cam = na::Matrix3::<f64>::from_columns(&[s1 * &j1, s2 * &j2, s3 * &j3]);
+        return p_cam;
     };
 
     let all_roots = roots::find_roots_quartic(a4, a3, a2, a1, a0);
@@ -81,30 +125,31 @@ fn grunert(p_w: &na::Matrix3<f64>, p_i: &na::Matrix3<f64>) -> Vec<Solution> {
     match all_roots {
         roots::Roots::Four(x) => {
             for i in 0..4 {
-                get_points_in_cam_frame_from_v(x[i]);
+                let p_cam = get_points_in_cam_frame_from_v(x[i]);
+                // TODO: Arun's method
             }
-        },
+        }
         roots::Roots::Three(x) => {
             for i in 0..3 {
-                get_points_in_cam_frame_from_v(x[i]);
+                let p_cam = get_points_in_cam_frame_from_v(x[i]);
             }
-        },
+        }
         roots::Roots::Two(x) => {
             for i in 0..2 {
                 get_points_in_cam_frame_from_v(x[i]);
             }
-        },
+        }
         roots::Roots::One(x) => {
             for i in 0..1 {
-                get_points_in_cam_frame_from_v(x[i]);
+                let p_cam = get_points_in_cam_frame_from_v(x[i]);
             }
-        },
-        _ => {num_roots = 0;}
+        }
+        _ => { num_roots = 0; }
     }
 
     let rotation = na::Matrix3::<f64>::zeros();
     let translation = na::Vector3::<f64>::zeros();
-    let result = Solution { rotation: rotation, translation: translation};
+    let result = Solution { rotation: rotation, translation: translation };
     let results = vec![result];
     return results;
 }
