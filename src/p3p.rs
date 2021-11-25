@@ -4,7 +4,7 @@ use roots::Roots;
 use super::solution::Solution;
 
 /// Run Arun's method to solve for rigid body transformation:
-/// p = R * p_prime + t
+/// p_prime = R * p + t
 /// where p and p_prime are 3x3 matrices with each column represent one 3D point
 fn arun(p: na::Matrix3<f64>, p_prime: na::Matrix3<f64>) -> (na::Matrix3<f64>, na::Vector3<f64>) {
     // find centroids
@@ -166,6 +166,8 @@ fn kneip(p_w: &na::Matrix3<f64>, p_i: &na::Matrix3<f64>) -> Vec<Solution> {
 mod tests {
     use super::*;
     use nalgebra as na;
+    use rand::Rng;
+    use rand::distributions::Standard;
 
     #[test]
     fn test_p3p() {
@@ -173,5 +175,25 @@ mod tests {
         let p_i = na::Matrix3::<f64>::identity();
         let result = grunert(&p_w, &p_i);
         assert_eq!(42, 42);
+    }
+
+    #[test]
+    fn test_arun() {
+        // generate random rotation and translation
+        let mut rng = rand::thread_rng();
+        let t_gt: na::Vector3<f64> = rng.gen();
+        let r_gt: na::Rotation3<f64> = rng.gen();
+        let rotation_gt = r_gt.matrix();
+
+        let p_src = na::Matrix3::<f64>::new_random();
+        let mut p_tgt = rotation_gt * p_src;
+        for (i, mut col) in p_tgt.column_iter_mut().enumerate() {
+            col += t_gt;
+        }
+        let (rotation_est, t_est) = arun(p_src, p_tgt);
+        assert!(rotation_est.is_special_orthogonal(1e-7));
+        // check estimated against gt
+        assert!(rotation_est.relative_eq(&rotation_gt, 1e-7, 1e-7));
+        assert!(t_est.relative_eq(&t_gt, 1e-7, 1e-7));
     }
 }

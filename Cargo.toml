@@ -5,8 +5,9 @@ edition = "2021"
 authors = ["Jingnan Shi <jnshi@mit.edu>"]
 
 [dependencies]
-nalgebra = "0.29"
+nalgebra = {version="0.29", default-features=true, features=['rand']}
 roots = "0.0.7"
+rand = '0.8.4'
 
 [lib]
 name = "recipnps"
