@@ -177,4 +177,27 @@ mod tests {
         assert!(rotation_est.relative_eq(&rotation_gt, 1e-7, 1e-7));
         assert!(t_est.relative_eq(&t_gt, 1e-7, 1e-7));
     }
+
+    #[test]
+    fn test_grunert() {
+        // generate camera points (force positive z)
+        let mut rng = rand::thread_rng();
+        let mut p_cam: na::Matrix3<f64> = rng.gen();
+        p_cam.set_row(2, &p_cam.row(2).abs());
+
+        // generate random rotation and translation
+        let t_gt: na::Vector3<f64> = rng.gen();
+        let r_gt: na::Rotation3<f64> = rng.gen();
+        let rotation_gt = r_gt.matrix();
+
+        // calculate gt world points
+        // p_cam = R p_world + t
+        // p_world = R^T * (p_cam - t)
+        let mut p_world: na::Matrix3<f64> = p_cam;
+        for (i, mut column) in p_world.column_iter_mut().enumerate() {
+            column -= &t_gt;
+        }
+        p_world *= rotation_gt.transpose();
+
+    }
 }
