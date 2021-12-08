@@ -6,17 +6,19 @@ use super::solution::Solution;
 /// Run Arun's method to solve for rigid body transformation:
 /// p_prime = R * p + t
 /// where p and p_prime are 3x3 matrices with each column represent one 3D point
-fn arun(p: na::Matrix3<f64>, p_prime: na::Matrix3<f64>) -> (na::Matrix3<f64>, na::Vector3<f64>) {
+fn arun(p: &na::Matrix3<f64>, p_prime: &na::Matrix3<f64>) -> (na::Matrix3<f64>, na::Vector3<f64>) {
     // find centroids
     let p_centroid = p.column_mean();
     let p_prime_centroid = p_prime.column_mean();
 
     // calculate the vectors from centroids
-    let mut q = p;
+    let mut q = na::Matrix3::<f64>::zeros();
+    q.copy_from(p);
     for (i, mut column) in q.column_iter_mut().enumerate() {
         column -= &p_centroid;
     }
-    let mut q_prime = p_prime;
+    let mut q_prime = na::Matrix3::<f64>::zeros();
+    q_prime.copy_from(p_prime);
     for (i, mut column) in q_prime.column_iter_mut().enumerate() {
         column -= &p_prime_centroid;
     }
@@ -121,36 +123,15 @@ fn grunert(p_w: &na::Matrix3<f64>, p_i: &na::Matrix3<f64>) -> Vec<Solution> {
     };
 
     let all_roots = roots::find_roots_quartic(a4, a3, a2, a1, a0);
-    let mut num_roots = 0;
-    match all_roots {
-        roots::Roots::Four(x) => {
-            for i in 0..4 {
-                let p_cam = get_points_in_cam_frame_from_v(x[i]);
-                // TODO: Arun's method
-            }
-        }
-        roots::Roots::Three(x) => {
-            for i in 0..3 {
-                let p_cam = get_points_in_cam_frame_from_v(x[i]);
-            }
-        }
-        roots::Roots::Two(x) => {
-            for i in 0..2 {
-                get_points_in_cam_frame_from_v(x[i]);
-            }
-        }
-        roots::Roots::One(x) => {
-            for i in 0..1 {
-                let p_cam = get_points_in_cam_frame_from_v(x[i]);
-            }
-        }
-        _ => { num_roots = 0; }
+    let num_roots = all_roots.as_ref().len();
+    let mut results = Vec::<Solution>::new();
+    for i in 0..num_roots {
+        let p_cam = get_points_in_cam_frame_from_v(all_roots.as_ref()[i]);
+        // calculate the rotation and translation using Arun's method
+        let (rotation_est, t_est) = arun(p_w, &p_cam);
+        results.push(Solution { rotation: rotation_est, translation: t_est });
     }
 
-    let rotation = na::Matrix3::<f64>::zeros();
-    let translation = na::Vector3::<f64>::zeros();
-    let result = Solution { rotation: rotation, translation: translation };
-    let results = vec![result];
     return results;
 }
 
@@ -190,7 +171,7 @@ mod tests {
         for (i, mut col) in p_tgt.column_iter_mut().enumerate() {
             col += t_gt;
         }
-        let (rotation_est, t_est) = arun(p_src, p_tgt);
+        let (rotation_est, t_est) = arun(&p_src, &p_tgt);
         assert!(rotation_est.is_special_orthogonal(1e-7));
         // check estimated against gt
         assert!(rotation_est.relative_eq(&rotation_gt, 1e-7, 1e-7));
