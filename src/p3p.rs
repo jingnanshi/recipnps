@@ -197,7 +197,13 @@ mod tests {
         for (i, mut column) in p_world.column_iter_mut().enumerate() {
             column -= &t_gt;
         }
-        p_world *= rotation_gt.transpose();
+        p_world = rotation_gt.transpose() * p_world;
 
+        // get bearing vectors for the points in camera frame
+        let mut p_i = p_cam;
+        p_i.column_iter_mut().for_each(|mut c| c /= c[2]);
+
+        // run grunert's p3p
+        let solutions = grunert(&p_world, &p_i);
     }
 }
