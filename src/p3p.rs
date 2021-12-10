@@ -128,7 +128,6 @@ fn grunert(p_w: &na::Matrix3<f64>, p_i: &na::Matrix3<f64>) -> Vec<Solution> {
     let mut results = Vec::<Solution>::new();
     for i in 0..num_roots {
         let p_cam = get_points_in_cam_frame_from_v(all_roots.as_ref()[i]);
-        println!("p_cam_est: {}", p_cam);
         // calculate the rotation and translation using Arun's method
         let (rotation_est, t_est) = arun(p_w, &p_cam);
         results.push(Solution { rotation: rotation_est, translation: t_est });
@@ -183,15 +182,23 @@ mod tests {
     #[test]
     fn test_grunert() {
         // generate camera points (force positive z)
-        let mut rng = rand::thread_rng();
-        let mut p_cam: na::Matrix3<f64> = rng.gen();
-        p_cam.set_row(2, &p_cam.row(2).abs());
-        println!("p_cam_gt: {}", p_cam);
+        let p_cam = na::Matrix3::<f64>::new(
+            0.7145222331218005, 0.6997616555794328, 2.7801634549912415,
+            0.7253251306266671, 1.1639214982781518, 0.238599168957371,
+            0.43484773318930925, 0.3052619752472596, 0.29437234778903254,
+        );
 
         // generate random rotation and translation
-        let t_gt: na::Vector3<f64> = rng.gen();
-        let r_gt: na::Rotation3<f64> = rng.gen();
-        let rotation_gt = r_gt.matrix();
+        let t_gt: na::Vector3<f64> = na::Vector3::<f64>::new(
+            0.17216231844648533,
+            0.8968470516910476,
+            0.7639868514400336,
+        );
+        let rotation_gt = na::Matrix3::<f64>::new(
+            -0.5871671330204742, 0.5523730621371405, -0.5917083387326525,
+            -0.6943436357845219, 0.032045330116620696, 0.7189297686584192,
+            0.4160789268228421, 0.8329808503458861, 0.364720755662461,
+        );
 
         // calculate gt world points
         // p_cam = R p_world + t
@@ -208,11 +215,16 @@ mod tests {
 
         // run grunert's p3p
         let solutions = grunert(&p_world, &p_i);
-        println!("gt rot: {}", rotation_gt);
-        println!("gt trans: {}", t_gt);
+        // ensure at least one solution is consistent with gt
+        let mut flag: bool = false;
         for i in 0..solutions.len() {
-            println!("est trans: {}", solutions[i].translation);
-            println!("est rot: {}", solutions[i].rotation);
+            let t_flag = solutions[i].translation.relative_eq(&t_gt, 1e-7, 1e-7);
+            let r_flag = solutions[i].rotation.relative_eq(&rotation_gt, 1e-7, 1e-7);
+            if t_flag & r_flag {
+                flag = true;
+                break;
+            }
         }
+        assert!(flag)
     }
 }
