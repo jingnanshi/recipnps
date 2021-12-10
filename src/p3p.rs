@@ -75,11 +75,12 @@ fn grunert(p_w: &na::Matrix3<f64>, p_i: &na::Matrix3<f64>) -> Vec<Solution> {
     let c_sq = c.powi(2);
 
     // 2. Get directional vectors j_i (j_i points to p_w(i))
-    let j1 = p_i.column(0) / p_i[(0, 2)];
-    let j2 = p_i.column(1) / p_i[(1, 2)];
-    let j3 = p_i.column(2) / p_i[(2, 2)];
+    let j1 = p_i.column(0).normalize();
+    let j2 = p_i.column(1).normalize();
+    let j3 = p_i.column(2).normalize();
 
     // 3. Calculate cos(alpha) cos(beta) cos(gamma)
+    // note: cosines need to be within [-1, 1]
     let cos_alpha = j2.dot(&j3);
     let cos_beta = j1.dot(&j3);
     let cos_gamma = j1.dot(&j2);
@@ -88,33 +89,33 @@ fn grunert(p_w: &na::Matrix3<f64>, p_i: &na::Matrix3<f64>) -> Vec<Solution> {
     let cos_gamma_sq = cos_gamma.powi(2);
 
     // 4. Solve polynomial
-    let a_sq_minus_c_sq_div_b = (a_sq - c_sq) / b_sq;
-    let a_sq_plus_c_sq_div_b = (a_sq + c_sq) / b_sq;
-    let b_sq_minus_c_sq_div_b = (b_sq - c_sq) / b_sq;
-    let b_sq_minus_a_sq_div_b = (b_sq - a_sq) / b_sq;
+    let a_sq_minus_c_sq_div_b_sq = (a_sq - c_sq) / b_sq;
+    let a_sq_plus_c_sq_div_b_sq = (a_sq + c_sq) / b_sq;
+    let b_sq_minus_c_sq_div_b_sq = (b_sq - c_sq) / b_sq;
+    let b_sq_minus_a_sq_div_b_sq = (b_sq - a_sq) / b_sq;
 
-    let a4 = (a_sq_minus_c_sq_div_b - 1.0).powi(2) - 4.0 * c_sq / b_sq * cos_alpha_sq;
-    let a3 = 4.0 * (a_sq_minus_c_sq_div_b * (1.0 - a_sq_minus_c_sq_div_b) * cos_beta
-        - (1.0 - a_sq_plus_c_sq_div_b) * cos_alpha * cos_gamma
+    let a4 = (a_sq_minus_c_sq_div_b_sq - 1.0).powi(2) - 4.0 * c_sq / b_sq * cos_alpha_sq;
+    let a3 = 4.0 * (a_sq_minus_c_sq_div_b_sq * (1.0 - a_sq_minus_c_sq_div_b_sq) * cos_beta
+        - (1.0 - a_sq_plus_c_sq_div_b_sq) * cos_alpha * cos_gamma
         + 2.0 * c_sq / b_sq * cos_alpha_sq * cos_beta);
-    let a2 = 2.0 * ((a_sq_minus_c_sq_div_b).powi(2) - 1.0
-        + 2.0 * (a_sq_minus_c_sq_div_b).powi(2) * cos_beta_sq
-        + 2.0 * (b_sq_minus_c_sq_div_b) * cos_alpha_sq
-        - 4.0 * (a_sq_plus_c_sq_div_b) * cos_alpha * cos_beta * cos_gamma
-        + 2.0 * (b_sq_minus_a_sq_div_b) * cos_gamma_sq);
-    let a1 = 4.0 * (-(a_sq_minus_c_sq_div_b) * (1.0 + a_sq_minus_c_sq_div_b) * cos_beta
+    let a2 = 2.0 * ((a_sq_minus_c_sq_div_b_sq).powi(2) - 1.0
+        + 2.0 * (a_sq_minus_c_sq_div_b_sq).powi(2) * cos_beta_sq
+        + 2.0 * (b_sq_minus_c_sq_div_b_sq) * cos_alpha_sq
+        - 4.0 * (a_sq_plus_c_sq_div_b_sq) * cos_alpha * cos_beta * cos_gamma
+        + 2.0 * (b_sq_minus_a_sq_div_b_sq) * cos_gamma_sq);
+    let a1 = 4.0 * (-(a_sq_minus_c_sq_div_b_sq) * (1.0 + a_sq_minus_c_sq_div_b_sq) * cos_beta
         + 2.0 * a_sq / b_sq * cos_gamma_sq * cos_beta
-        - (1.0 - (a_sq_plus_c_sq_div_b)) * cos_alpha * cos_gamma);
-    let a0 = (1.0 + a_sq_minus_c_sq_div_b).powi(2) - 4.0 * a_sq / b_sq * cos_gamma_sq;
+        - (1.0 - (a_sq_plus_c_sq_div_b_sq)) * cos_alpha * cos_gamma);
+    let a0 = (1.0 + a_sq_minus_c_sq_div_b_sq).powi(2) - 4.0 * a_sq / b_sq * cos_gamma_sq;
 
     let get_points_in_cam_frame_from_v = |v: f64| -> na::Matrix3<f64>{
         // return a 3x3 matrix, with each column represent 1 point
         // calculate u
-        let u = ((-1.0 + a_sq_minus_c_sq_div_b) * v.powi(2)
-            - 2.0 * (a_sq_minus_c_sq_div_b) * cos_beta * v + 1.0 + a_sq_minus_c_sq_div_b)
-            / (2.0 * cos_gamma - v * cos_alpha);
+        let u = ((-1.0 + a_sq_minus_c_sq_div_b_sq) * v.powi(2)
+            - 2.0 * (a_sq_minus_c_sq_div_b_sq) * cos_beta * v + 1.0 + a_sq_minus_c_sq_div_b_sq)
+            / (2.0 * (cos_gamma - v * cos_alpha));
         // calculate s1, s2, s3
-        let s1 = c_sq / (1.0 + u.powi(2) - 2.0 * u * cos_gamma).sqrt();
+        let s1 = (c_sq / (1.0 + u.powi(2) - 2.0 * u * cos_gamma)).sqrt();
         let s2 = u * s1;
         let s3 = v * s1;
         // calculate the positions of p1, p2, p3 in camera frame
@@ -127,6 +128,7 @@ fn grunert(p_w: &na::Matrix3<f64>, p_i: &na::Matrix3<f64>) -> Vec<Solution> {
     let mut results = Vec::<Solution>::new();
     for i in 0..num_roots {
         let p_cam = get_points_in_cam_frame_from_v(all_roots.as_ref()[i]);
+        println!("p_cam_est: {}", p_cam);
         // calculate the rotation and translation using Arun's method
         let (rotation_est, t_est) = arun(p_w, &p_cam);
         results.push(Solution { rotation: rotation_est, translation: t_est });
@@ -184,6 +186,7 @@ mod tests {
         let mut rng = rand::thread_rng();
         let mut p_cam: na::Matrix3<f64> = rng.gen();
         p_cam.set_row(2, &p_cam.row(2).abs());
+        println!("p_cam_gt: {}", p_cam);
 
         // generate random rotation and translation
         let t_gt: na::Vector3<f64> = rng.gen();
