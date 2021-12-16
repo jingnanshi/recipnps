@@ -136,8 +136,91 @@ fn grunert(p_w: &na::Matrix3<f64>, p_i: &na::Matrix3<f64>) -> Vec<Solution> {
     return results;
 }
 
+/// Run Fischler's P3P solver.
+///
+/// Take in 3D points in the world frame, and calibrated bearing vectors.
+/// Each column in the matrices represent one point.
+///
+/// Reference: Haralick, Bert M., et al. "Review and analysis of solutions of the three point
+/// perspective pose estimation problem." International journal of computer vision 13.3 (1994):
+/// 331-356.
+///
+/// # Example
 fn fischler(p_w: &na::Matrix3<f64>, p_i: &na::Matrix3<f64>) -> Vec<Solution> {
-    unimplemented!();
+    // Note: notation follows paper:
+    // Haralick, Bert M., et al. "Review and analysis of solutions of the three point perspective
+    // pose estimation problem." International journal of computer vision 13.3 (1994): 331-356.
+    // 1. Calculate the known lengths of p_w
+    let p1 = p_w.column(0);
+    let p2 = p_w.column(1);
+    let p3 = p_w.column(2);
+    let a: f64 = (p2 - p3).norm();
+    let b: f64 = (p1 - p3).norm();
+    let c: f64 = (p1 - p2).norm();
+    let a_sq = a.powi(2);
+    let b_sq = b.powi(2);
+    let c_sq = c.powi(2);
+
+    // 2. Get directional vectors j_i (j_i points to p_w(i))
+    let j1 = p_i.column(0).normalize();
+    let j2 = p_i.column(1).normalize();
+    let j3 = p_i.column(2).normalize();
+
+    // 3. Calculate cos(alpha) cos(beta) cos(gamma)
+    // note: cosines need to be within [-1, 1]
+    let cos_alpha = j2.dot(&j3);
+    let cos_beta = j1.dot(&j3);
+    let cos_gamma = j1.dot(&j2);
+    let cos_alpha_sq = cos_alpha.powi(2);
+    let cos_beta_sq = cos_beta.powi(2);
+    let cos_gamma_sq = cos_gamma.powi(2);
+
+    // 4. Solve polynomial
+    let a_sq_minus_c_sq_div_b_sq = (a_sq - c_sq) / b_sq;
+    let a_sq_plus_c_sq_div_b_sq = (a_sq + c_sq) / b_sq;
+    let b_sq_minus_c_sq_div_b_sq = (b_sq - c_sq) / b_sq;
+    let b_sq_minus_a_sq_div_b_sq = (b_sq - a_sq) / b_sq;
+
+    let d4 = 4f64 * b_sq * c_sq * cos_alpha_sq - (a_sq - b_sq - c_sq).powi(2);
+    let d3 = -4f64 * c_sq * (a_sq + b_sq - c_sq) * cos_alpha * cos_beta
+        - 8f64 * b_sq * c_sq * cos_alpha_sq * cos_gamma
+        + 4f64 * (a_sq - b_sq - c_sq) * (a_sq - b_sq) * cos_gamma;
+    let d2 = 4f64 * c_sq * (a_sq - c_sq) * cos_beta_sq
+        + 8f64 * c_sq * (a_sq + b_sq) * cos_alpha * cos_beta * cos_gamma
+        + 4f64 * c_sq * (b_sq - c_sq) * cos_alpha_sq
+        - 2f64 * (a_sq - b_sq - c_sq) * (a_sq - b_sq + c_sq)
+        - 4f64 * (a_sq - b_sq).powi(2) * cos_gamma_sq;
+    let d1 = -8f64 * a_sq * c_sq * cos_beta_sq * cos_gamma
+        - 4f64 * c_sq * (b_sq - c_sq) * cos_alpha * cos_beta
+        - 4f64 * a_sq * c_sq * cos_alpha * cos_beta
+        + 4f64 * (a_sq - b_sq) * (a_sq - b_sq + c_sq) * cos_gamma;
+    let d0 = 4f64 * a_sq * c_sq * cos_beta_sq - (a_sq - b_sq + c_sq).powi(2);
+
+    let get_points_in_cam_frame_from_u = |u: f64| -> na::Matrix3<f64>{
+        // return a 3x3 matrix, with each column represent 1 point
+        // calculate v
+        let v = ( -(a_sq - b_sq - c_sq) * u.powi(2) - 2f64 * (b_sq - a_sq) * cos_gamma * u
+            - a_sq + b_sq - c_sq ) / ( 2f64 * c_sq * (cos_alpha * u - cos_beta) );
+        // calculate s1, s2, s3
+        let s1 = (c_sq / (1.0 + u.powi(2) - 2.0 * u * cos_gamma)).sqrt();
+        let s2 = u * s1;
+        let s3 = v * s1;
+        // calculate the positions of p1, p2, p3 in camera frame
+        let p_cam = na::Matrix3::<f64>::from_columns(&[s1 * &j1, s2 * &j2, s3 * &j3]);
+        return p_cam;
+    };
+
+    let all_roots = roots::find_roots_quartic(d4, d3, d2, d1, d0);
+    let num_roots = all_roots.as_ref().len();
+    let mut results = Vec::<Solution>::new();
+    for i in 0..num_roots {
+        let p_cam = get_points_in_cam_frame_from_v(all_roots.as_ref()[i]);
+        // calculate the rotation and translation using Arun's method
+        let (rotation_est, t_est) = arun(p_w, &p_cam);
+        results.push(Solution { rotation: rotation_est, translation: t_est });
+    }
+
+    return results;
 }
 
 fn kneip(p_w: &na::Matrix3<f64>, p_i: &na::Matrix3<f64>) -> Vec<Solution> {
