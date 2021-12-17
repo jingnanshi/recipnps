@@ -1,6 +1,5 @@
 use nalgebra as na;
 use roots;
-use roots::Roots;
 use super::solution::Solution;
 
 /// Run Arun's method to solve for rigid body transformation:
@@ -14,12 +13,12 @@ fn arun(p: &na::Matrix3<f64>, p_prime: &na::Matrix3<f64>) -> (na::Matrix3<f64>, 
     // calculate the vectors from centroids
     let mut q = na::Matrix3::<f64>::zeros();
     q.copy_from(p);
-    for (i, mut column) in q.column_iter_mut().enumerate() {
+    for (_i, mut column) in q.column_iter_mut().enumerate() {
         column -= &p_centroid;
     }
     let mut q_prime = na::Matrix3::<f64>::zeros();
     q_prime.copy_from(p_prime);
-    for (i, mut column) in q_prime.column_iter_mut().enumerate() {
+    for (_i, mut column) in q_prime.column_iter_mut().enumerate() {
         column -= &p_prime_centroid;
     }
 
@@ -176,11 +175,6 @@ fn fischler(p_w: &na::Matrix3<f64>, p_i: &na::Matrix3<f64>) -> Vec<Solution> {
     let cos_gamma_sq = cos_gamma.powi(2);
 
     // 4. Solve polynomial
-    let a_sq_minus_c_sq_div_b_sq = (a_sq - c_sq) / b_sq;
-    let a_sq_plus_c_sq_div_b_sq = (a_sq + c_sq) / b_sq;
-    let b_sq_minus_c_sq_div_b_sq = (b_sq - c_sq) / b_sq;
-    let b_sq_minus_a_sq_div_b_sq = (b_sq - a_sq) / b_sq;
-
     let d4 = 4f64 * b_sq * c_sq * cos_alpha_sq - (a_sq - b_sq - c_sq).powi(2);
     let d3 = -4f64 * c_sq * (a_sq + b_sq - c_sq) * cos_alpha * cos_beta
         - 8f64 * b_sq * c_sq * cos_alpha_sq * cos_gamma
@@ -232,7 +226,6 @@ mod tests {
     use super::*;
     use nalgebra as na;
     use rand::Rng;
-    use rand::distributions::Standard;
 
     /// Return a tuple of p_cam, p_world, t_gt, rotation_gt
     fn easy_test_case() -> (na::Matrix3<f64>, na::Matrix3<f64>, na::Vector3<f64>, na::Matrix3<f64>) {
