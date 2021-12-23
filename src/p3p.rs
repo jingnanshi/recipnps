@@ -217,8 +217,159 @@ fn fischler(p_w: &na::Matrix3<f64>, p_i: &na::Matrix3<f64>) -> Vec<Solution> {
     return results;
 }
 
+/// Implementation of Kneip's P3P algorithm.
+///
+/// Reference: Kneip, Laurent, Davide Scaramuzza, and Roland Siegwart.
+/// "A novel parametrization of the perspective-three-point problem for a direct computation of
+/// absolute camera position and orientation." CVPR 2011. IEEE, 2011.
+///
 fn kneip(p_w: &na::Matrix3<f64>, p_i: &na::Matrix3<f64>) -> Vec<Solution> {
-    unimplemented!();
+    // check for degenerate case
+    let mut p1: na::Vector3<f64> = p_w.column(0).into_owned();
+    let mut p2: na::Vector3<f64> = p_w.column(1).into_owned();
+    let mut p3: na::Vector3<f64> = p_w.column(2).into_owned();
+    if (p2 - p1).cross(&(p3 - p1)).norm() == 0.0 {
+        panic!("Degenerate case: possible collinear 3-pt configuration.");
+    }
+
+    // get the bearing vectors
+    let f1_og = p_i.column(0).normalize();
+    let f2_og = p_i.column(1).normalize();
+    let f3_og = p_i.column(2).normalize();
+    let mut f1 = f1_og.clone();
+    let mut f2 = f2_og.clone();
+    let mut f3 = f3_og.clone();
+
+    // compute transformation matrix T and feature vector f3
+    let mut e1 = f1;
+    let mut e3 = f1.cross(&f2).normalize();
+    let mut e2 = e3.cross(&e1);
+    let mut tt = na::Matrix3::<f64>::from_rows(&[e1.transpose(), e2.transpose(), e3.transpose()]);
+
+    f3 = tt * f3;
+    // enforce theta within [0, pi]
+    // see paper page 4
+    if f3[2] > 0.0f64 {
+        // flip f1 and f2 to change the sign of e3
+        f1 = f2_og;
+        f2 = f1_og;
+        f3 = f3_og;
+
+        e1 = f1;
+        e3 = f1.cross(&f2).normalize();
+        e2 = e3.cross(&e1);
+        tt = na::Matrix3::<f64>::from_rows(&[e1.transpose(), e2.transpose(), e3.transpose()]);
+
+        f3 = tt * f3;
+
+        p1 = p_w.column(1).into_owned();
+        p2 = p_w.column(0).into_owned();
+        p3 = p_w.column(2).into_owned();
+    }
+
+    let n1 = (p2 - p1).normalize();
+    let n3 = n1.cross(&(p3 - p1)).normalize();
+    let n2 = n3.cross(&n1);
+
+    // compute transformation matrix N and the world point p3_eta
+    // see paper equation (2)
+    let nn = na::Matrix3::<f64>::from_rows(&[n1.transpose(), n2.transpose(), n3.transpose()]);
+    p3 = nn * (p3 - p1);
+
+    let d_12: f64 = (p2 - p1).norm();
+    let f_1: f64 = f3[0] / f3[2];
+    let f_2: f64 = f3[1] / f3[2];
+    let p_1: f64 = p3[0];
+    let p_2: f64 = p3[1];
+
+    let cos_beta: f64 = f1.dot(&f2);
+    let mut b: f64 = 1.0 / (1.0 - cos_beta * cos_beta) - 1.0;
+    if cos_beta < 0.0 {
+        b = -b.sqrt();
+    } else {
+        b = b.sqrt();
+    }
+
+    let f_1_pw2: f64 = f_1 * f_1;
+    let f_2_pw2: f64 = f_2 * f_2;
+    let p_1_pw2: f64 = p_1 * p_1;
+    let p_1_pw3: f64 = p_1_pw2 * p_1;
+    let p_1_pw4: f64 = p_1_pw3 * p_1;
+    let p_2_pw2: f64 = p_2 * p_2;
+    let p_2_pw3: f64 = p_2_pw2 * p_2;
+    let p_2_pw4: f64 = p_2_pw3 * p_2;
+    let d_12_pw2: f64 = d_12 * d_12;
+    let b_pw2: f64 = b * b;
+
+    // polynomial coefficients
+    // see eq (11) in paper
+    let a4 = -f_2_pw2 * p_2_pw4 - p_2_pw4 * f_1_pw2 - p_2_pw4;
+    let a3 = 2.0 * p_2_pw3 * d_12 * b + 2.0 * f_2_pw2 * p_2_pw3 * d_12 * b
+        - 2.0 * f_2 * p_2_pw3 * f_1 * d_12;
+    let a2 = -f_2_pw2 * p_2_pw2 * p_1_pw2
+        - f_2_pw2 * p_2_pw2 * d_12_pw2 * b_pw2
+        - f_2_pw2 * p_2_pw2 * d_12_pw2
+        + f_2_pw2 * p_2_pw4
+        + p_2_pw4 * f_1_pw2
+        + 2.0 * p_1 * p_2_pw2 * d_12
+        + 2.0 * f_1 * f_2 * p_1 * p_2_pw2 * d_12 * b
+        - p_2_pw2 * p_1_pw2 * f_1_pw2
+        + 2.0 * p_1 * p_2_pw2 * f_2_pw2 * d_12
+        - p_2_pw2 * d_12_pw2 * b_pw2
+        - 2.0 * p_1_pw2 * p_2_pw2;
+    let a1 = 2.0 * p_1_pw2 * p_2 * d_12 * b
+        + 2.0 * f_2 * p_2_pw3 * f_1 * d_12
+        - 2.0 * f_2_pw2 * p_2_pw3 * d_12 * b
+        - 2.0 * p_1 * p_2 * d_12_pw2 * b;
+    let a0 = -2.0 * f_2 * p_2_pw2 * f_1 * p_1 * d_12 * b
+        + f_2_pw2 * p_2_pw2 * d_12_pw2
+        + 2.0 * p_1_pw3 * d_12
+        - p_1_pw2 * d_12_pw2
+        + f_2_pw2 * p_2_pw2 * p_1_pw2
+        - p_1_pw4
+        - 2.0 * f_2_pw2 * p_2_pw2 * p_1 * d_12
+        + p_2_pw2 * f_1_pw2 * p_1_pw2
+        + f_2_pw2 * p_2_pw2 * d_12_pw2 * b_pw2;
+
+    let all_roots = roots::find_roots_quartic(a4, a3, a2, a1, a0);
+    let num_roots = all_roots.as_ref().len();
+
+    let mut results = Vec::<Solution>::new();
+    for i in 0..num_roots {
+        let cos_theta = all_roots.as_ref()[i];
+        let cot_alpha =
+            (-f_1 * p_1 / f_2 - cos_theta * p_2 + d_12 * b) /
+                (-f_1 * cos_theta * p_2 / f_2 + p_1 - d_12);
+        let sin_theta = (1.0 - cos_theta * cos_theta).sqrt();
+        let sin_alpha = (1.0 / (cot_alpha * cot_alpha + 1.0)).sqrt();
+        let cos_alpha = {
+            let mut cos_alpha = (1.0 - sin_alpha * sin_alpha).sqrt();
+            if cot_alpha < 0.0 {
+                cos_alpha = -cos_alpha;
+            }
+            cos_alpha
+        };
+        let t_est: na::Vector3<f64> = {
+            let mut t = na::Vector3::<f64>::new(
+                d_12 * cos_alpha * (sin_alpha * b + cos_alpha),
+                cos_theta * d_12 * sin_alpha * (sin_alpha * b + cos_alpha),
+                sin_theta * d_12 * sin_alpha * (sin_alpha * b + cos_alpha),
+            );
+            p1 + nn.transpose() * t
+        };
+
+        let rotation_est: na::Matrix3<f64> = {
+            let mut rr = na::Matrix3::<f64>::new(
+                -cos_alpha, -sin_alpha * cos_theta, -sin_alpha * sin_theta,
+                sin_alpha, -cos_alpha * cos_theta, -cos_alpha * sin_theta,
+                0.0, -sin_theta, cos_theta,
+            );
+            nn.transpose() * rr.transpose() * tt
+        };
+        results.push(Solution { rotation: rotation_est, translation: t_est });
+    }
+
+    return results;
 }
 
 #[cfg(test)]
