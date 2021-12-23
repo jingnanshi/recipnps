@@ -349,23 +349,31 @@ fn kneip(p_w: &na::Matrix3<f64>, p_i: &na::Matrix3<f64>) -> Vec<Solution> {
             }
             cos_alpha
         };
-        let t_est: na::Vector3<f64> = {
-            let mut t = na::Vector3::<f64>::new(
-                d_12 * cos_alpha * (sin_alpha * b + cos_alpha),
-                cos_theta * d_12 * sin_alpha * (sin_alpha * b + cos_alpha),
-                sin_theta * d_12 * sin_alpha * (sin_alpha * b + cos_alpha),
-            );
-            p1 + nn.transpose() * t
-        };
 
+        // In paper, the R and t are defined as below:
+        // p_world = R p_cam + t
+        //
+        // We modify it to get the ones we want:
+        // R^T p_world - R^T t = p_cam
         let rotation_est: na::Matrix3<f64> = {
             let mut rr = na::Matrix3::<f64>::new(
                 -cos_alpha, -sin_alpha * cos_theta, -sin_alpha * sin_theta,
                 sin_alpha, -cos_alpha * cos_theta, -cos_alpha * sin_theta,
                 0.0, -sin_theta, cos_theta,
             );
-            nn.transpose() * rr.transpose() * tt
+            tt.transpose() * rr * nn
         };
+
+        let t_est: na::Vector3<f64> = {
+            let mut t = na::Vector3::<f64>::new(
+                d_12 * cos_alpha * (sin_alpha * b + cos_alpha),
+                cos_theta * d_12 * sin_alpha * (sin_alpha * b + cos_alpha),
+                sin_theta * d_12 * sin_alpha * (sin_alpha * b + cos_alpha),
+            );
+            t = p1 + nn.transpose() * t;
+            -rotation_est.transpose() * t
+        };
+
         results.push(Solution { rotation: rotation_est, translation: t_est });
     }
 
@@ -409,14 +417,6 @@ mod tests {
         p_world = rotation_gt.transpose() * p_world;
 
         return (p_cam, p_world, t_gt, rotation_gt);
-    }
-
-    #[test]
-    fn test_p3p() {
-        let p_w = na::Matrix3::<f64>::identity();
-        let p_i = na::Matrix3::<f64>::identity();
-        let result = grunert(&p_w, &p_i);
-        assert_eq!(42, 42);
     }
 
     #[test]
@@ -470,11 +470,38 @@ mod tests {
         let mut p_i = p_cam;
         p_i.column_iter_mut().for_each(|mut c| c /= c[2]);
 
-        // run grunert's p3p
+        // run fischler's p3p
         let solutions = fischler(&p_world, &p_i);
         // ensure at least one solution is consistent with gt
         let mut flag: bool = false;
         for i in 0..solutions.len() {
+            let t_flag = solutions[i].translation.relative_eq(&t_gt, 1e-7, 1e-7);
+            let r_flag = solutions[i].rotation.relative_eq(&rotation_gt, 1e-7, 1e-7);
+            if t_flag & r_flag {
+                flag = true;
+                break;
+            }
+        }
+        assert!(flag)
+    }
+
+    #[test]
+    fn test_kneip() {
+        let (p_cam, p_world, t_gt, rotation_gt) = easy_test_case();
+
+        // get bearing vectors for the points in camera frame
+        let mut p_i = p_cam;
+        p_i.column_iter_mut().for_each(|mut c| c /= c[2]);
+
+        // run kneip's p3p
+        let solutions = kneip(&p_world, &p_i);
+        // ensure at least one solution is consistent with gt
+        let mut flag: bool = false;
+        for i in 0..solutions.len() {
+            println!("t_gt: \n {}", t_gt);
+            println!("t_est: \n {}", solutions[i].translation);
+            println!("R_gt: \n {}", rotation_gt);
+            println!("R_est: \n {}", solutions[i].rotation);
             let t_flag = solutions[i].translation.relative_eq(&t_gt, 1e-7, 1e-7);
             let r_flag = solutions[i].rotation.relative_eq(&rotation_gt, 1e-7, 1e-7);
             if t_flag & r_flag {
