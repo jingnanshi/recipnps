@@ -1,6 +1,6 @@
 use nalgebra as na;
 use roots;
-use super::solution::Solution;
+use super::model::Model;
 
 /// Run Arun's method to solve for rigid body transformation:
 /// p_prime = R * p + t
@@ -58,7 +58,7 @@ fn arun(p: &na::Matrix3<f64>, p_prime: &na::Matrix3<f64>) -> (na::Matrix3<f64>, 
 /// 331-356.
 ///
 /// # Example
-fn grunert(p_w: &na::Matrix3<f64>, p_i: &na::Matrix3<f64>) -> Vec<Solution> {
+fn grunert(p_w: &na::Matrix3<f64>, p_i: &na::Matrix3<f64>) -> Vec<Model> {
     // Note: notation follows paper:
     // Haralick, Bert M., et al. "Review and analysis of solutions of the three point perspective
     // pose estimation problem." International journal of computer vision 13.3 (1994): 331-356.
@@ -124,12 +124,12 @@ fn grunert(p_w: &na::Matrix3<f64>, p_i: &na::Matrix3<f64>) -> Vec<Solution> {
 
     let all_roots = roots::find_roots_quartic(a4, a3, a2, a1, a0);
     let num_roots = all_roots.as_ref().len();
-    let mut results = Vec::<Solution>::new();
+    let mut results = Vec::<Model>::new();
     for i in 0..num_roots {
         let p_cam = get_points_in_cam_frame_from_v(all_roots.as_ref()[i]);
         // calculate the rotation and translation using Arun's method
         let (rotation_est, t_est) = arun(p_w, &p_cam);
-        results.push(Solution { rotation: rotation_est, translation: t_est });
+        results.push(Model { rotation: rotation_est, translation: t_est });
     }
 
     return results;
@@ -145,7 +145,7 @@ fn grunert(p_w: &na::Matrix3<f64>, p_i: &na::Matrix3<f64>) -> Vec<Solution> {
 /// 331-356.
 ///
 /// # Example
-fn fischler(p_w: &na::Matrix3<f64>, p_i: &na::Matrix3<f64>) -> Vec<Solution> {
+fn fischler(p_w: &na::Matrix3<f64>, p_i: &na::Matrix3<f64>) -> Vec<Model> {
     // Note: notation follows paper:
     // Haralick, Bert M., et al. "Review and analysis of solutions of the three point perspective
     // pose estimation problem." International journal of computer vision 13.3 (1994): 331-356.
@@ -206,12 +206,12 @@ fn fischler(p_w: &na::Matrix3<f64>, p_i: &na::Matrix3<f64>) -> Vec<Solution> {
 
     let all_roots = roots::find_roots_quartic(d4, d3, d2, d1, d0);
     let num_roots = all_roots.as_ref().len();
-    let mut results = Vec::<Solution>::new();
+    let mut results = Vec::<Model>::new();
     for i in 0..num_roots {
         let p_cam = get_points_in_cam_frame_from_u(all_roots.as_ref()[i]);
         // calculate the rotation and translation using Arun's method
         let (rotation_est, t_est) = arun(p_w, &p_cam);
-        results.push(Solution { rotation: rotation_est, translation: t_est });
+        results.push(Model { rotation: rotation_est, translation: t_est });
     }
 
     return results;
@@ -223,13 +223,13 @@ fn fischler(p_w: &na::Matrix3<f64>, p_i: &na::Matrix3<f64>) -> Vec<Solution> {
 /// "A novel parametrization of the perspective-three-point problem for a direct computation of
 /// absolute camera position and orientation." CVPR 2011. IEEE, 2011.
 ///
-fn kneip(p_w: &na::Matrix3<f64>, p_i: &na::Matrix3<f64>) -> Vec<Solution> {
+fn kneip(p_w: &na::Matrix3<f64>, p_i: &na::Matrix3<f64>) -> Vec<Model> {
     // check for degenerate case
     let mut p1: na::Vector3<f64> = p_w.column(0).into_owned();
     let mut p2: na::Vector3<f64> = p_w.column(1).into_owned();
     let mut p3: na::Vector3<f64> = p_w.column(2).into_owned();
     if (p2 - p1).cross(&(p3 - p1)).norm() == 0.0 {
-        panic!("Degenerate case: possible collinear 3-pt configuration.");
+        return Vec::<Model>::new();
     }
 
     // get the bearing vectors
@@ -334,7 +334,7 @@ fn kneip(p_w: &na::Matrix3<f64>, p_i: &na::Matrix3<f64>) -> Vec<Solution> {
     let all_roots = roots::find_roots_quartic(a4, a3, a2, a1, a0);
     let num_roots = all_roots.as_ref().len();
 
-    let mut results = Vec::<Solution>::new();
+    let mut results = Vec::<Model>::new();
     for i in 0..num_roots {
         let cos_theta = all_roots.as_ref()[i];
         let cot_alpha =
@@ -376,7 +376,7 @@ fn kneip(p_w: &na::Matrix3<f64>, p_i: &na::Matrix3<f64>) -> Vec<Solution> {
             -rotation_est * t
         };
 
-        results.push(Solution { rotation: rotation_est, translation: t_est });
+        results.push(Model { rotation: rotation_est, translation: t_est });
     }
 
     return results;
