@@ -355,6 +355,7 @@ fn kneip(p_w: &na::Matrix3<f64>, p_i: &na::Matrix3<f64>) -> Vec<Solution> {
         //
         // We modify it to get the ones we want:
         // R^T p_world - R^T t = p_cam
+        // rotation_est = R^T
         let rotation_est: na::Matrix3<f64> = {
             let mut rr = na::Matrix3::<f64>::new(
                 -cos_alpha, -sin_alpha * cos_theta, -sin_alpha * sin_theta,
@@ -364,6 +365,7 @@ fn kneip(p_w: &na::Matrix3<f64>, p_i: &na::Matrix3<f64>) -> Vec<Solution> {
             tt.transpose() * rr * nn
         };
 
+        // t_est = - R^T t
         let t_est: na::Vector3<f64> = {
             let mut t = na::Vector3::<f64>::new(
                 d_12 * cos_alpha * (sin_alpha * b + cos_alpha),
@@ -371,7 +373,7 @@ fn kneip(p_w: &na::Matrix3<f64>, p_i: &na::Matrix3<f64>) -> Vec<Solution> {
                 sin_theta * d_12 * sin_alpha * (sin_alpha * b + cos_alpha),
             );
             t = p1 + nn.transpose() * t;
-            -rotation_est.transpose() * t
+            -rotation_est * t
         };
 
         results.push(Solution { rotation: rotation_est, translation: t_est });
@@ -408,8 +410,11 @@ mod tests {
         );
 
         // calculate gt world points
-        // p_cam = R p_world + t
-        // p_world = R^T * (p_cam - t)
+        // we assume:
+        // p_cam = R_gt p_world + t_gt
+        //
+        // So to get world points from camera points, we have
+        // p_world = R_gt^T * (p_cam - t_gt)
         let mut p_world: na::Matrix3<f64> = p_cam;
         for (i, mut column) in p_world.column_iter_mut().enumerate() {
             column -= &t_gt;
