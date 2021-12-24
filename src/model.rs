@@ -13,7 +13,7 @@ impl Model {
     /// We assume:
     /// p_cam = R_gt p_world + t_gt
     fn reprojection_cost(&self, world_point: na::MatrixSlice3x1<f64>,
-                         bearing_vector: na::MatrixSlice3x1<f64>) -> f64{
+                         bearing_vector: na::MatrixSlice3x1<f64>) -> f64 {
         // we assume:
         // p_cam = R_gt p_world + t_gt
         let reprojection = (self.rotation * world_point + self.translation).normalize();
@@ -21,7 +21,7 @@ impl Model {
         // this is equivalent to
         // 1 - cos(angle between the two vectors)
         // and the range will be from 0 to 2
-        return 1.0 - reprojection.dot(&bearing_vector);
+        return 1.0 - reprojection.dot(&bearing_vector.normalize());
     }
 }
 
@@ -31,6 +31,7 @@ mod tests {
     use nalgebra as na;
     use rand::Rng;
 
+    #[test]
     fn test_reprojection_cost() {
         let mut rng = rand::thread_rng();
         let t_gt: na::Vector3<f64> = rng.gen();
@@ -43,6 +44,7 @@ mod tests {
             col += t_gt;
         }
         let mut model_to_test = Model { rotation: rotation_gt, translation: t_gt };
-        model_to_test.reprojection_cost(p_src.column(0), p_tgt.column(0));
+        let cost = model_to_test.reprojection_cost(p_src.column(0), p_tgt.column(0));
+        assert!(cost < 1e-7f64);
     }
 }
