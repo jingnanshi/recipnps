@@ -52,6 +52,7 @@ fn arun(p: &na::Matrix3<f64>, p_prime: &na::Matrix3<f64>) -> (na::Matrix3<f64>, 
 ///
 /// Take in 3D points in the world frame, and calibrated bearing vectors.
 /// Each column in the matrices represent one point.
+/// Assume bearing vectors are normalized.
 ///
 /// Reference: Haralick, Bert M., et al. "Review and analysis of solutions of the three point
 /// perspective pose estimation problem." International journal of computer vision 13.3 (1994):
@@ -74,9 +75,12 @@ fn grunert(p_w: &na::Matrix3<f64>, p_i: &na::Matrix3<f64>) -> Vec<Model> {
     let c_sq = c.powi(2);
 
     // 2. Get directional vectors j_i (j_i points to p_w(i))
-    let j1 = p_i.column(0).normalize();
-    let j2 = p_i.column(1).normalize();
-    let j3 = p_i.column(2).normalize();
+    debug_assert!((p_i.column(0).norm() - 1.0).abs() < 1e-7f64);
+    debug_assert!((p_i.column(1).norm() - 1.0).abs() < 1e-7f64);
+    debug_assert!((p_i.column(2).norm() - 1.0).abs() < 1e-7f64);
+    let j1 = p_i.column(0);
+    let j2 = p_i.column(1);
+    let j3 = p_i.column(2);
 
     // 3. Calculate cos(alpha) cos(beta) cos(gamma)
     // note: cosines need to be within [-1, 1]
@@ -161,9 +165,12 @@ fn fischler(p_w: &na::Matrix3<f64>, p_i: &na::Matrix3<f64>) -> Vec<Model> {
     let c_sq = c.powi(2);
 
     // 2. Get directional vectors j_i (j_i points to p_w(i))
-    let j1 = p_i.column(0).normalize();
-    let j2 = p_i.column(1).normalize();
-    let j3 = p_i.column(2).normalize();
+    debug_assert!((p_i.column(0).norm() - 1.0).abs() < 1e-7f64);
+    debug_assert!((p_i.column(1).norm() - 1.0).abs() < 1e-7f64);
+    debug_assert!((p_i.column(2).norm() - 1.0).abs() < 1e-7f64);
+    let j1 = p_i.column(0);
+    let j2 = p_i.column(1);
+    let j3 = p_i.column(2);
 
     // 3. Calculate cos(alpha) cos(beta) cos(gamma)
     // note: cosines need to be within [-1, 1]
@@ -233,18 +240,22 @@ fn kneip(p_w: &na::Matrix3<f64>, p_i: &na::Matrix3<f64>) -> Vec<Model> {
     }
 
     // get the bearing vectors
-    let f1_og = p_i.column(0).normalize();
-    let f2_og = p_i.column(1).normalize();
-    let f3_og = p_i.column(2).normalize();
+    debug_assert!((p_i.column(0).norm() - 1.0).abs() < 1e-7f64);
+    debug_assert!((p_i.column(1).norm() - 1.0).abs() < 1e-7f64);
+    debug_assert!((p_i.column(2).norm() - 1.0).abs() < 1e-7f64);
+    let f1_og = p_i.column(0).into_owned();
+    let f2_og = p_i.column(1).into_owned();
+    let f3_og = p_i.column(2).into_owned();
     let mut f1 = f1_og.clone();
     let mut f2 = f2_og.clone();
     let mut f3 = f3_og.clone();
 
     // compute transformation matrix T and feature vector f3
     let mut e1 = f1;
-    let mut e3 = f1.cross(&f2).normalize();
+    let mut e3 = f1.cross(&f2);
     let mut e2 = e3.cross(&e1);
     let mut tt = na::Matrix3::<f64>::from_rows(&[e1.transpose(), e2.transpose(), e3.transpose()]);
+    debug_assert!(tt.is_special_orthogonal(1e-7));
 
     f3 = tt * f3;
     // enforce theta within [0, pi]
@@ -256,7 +267,7 @@ fn kneip(p_w: &na::Matrix3<f64>, p_i: &na::Matrix3<f64>) -> Vec<Model> {
         f3 = f3_og;
 
         e1 = f1;
-        e3 = f1.cross(&f2).normalize();
+        e3 = f1.cross(&f2);
         e2 = e3.cross(&e1);
         tt = na::Matrix3::<f64>::from_rows(&[e1.transpose(), e2.transpose(), e3.transpose()]);
 
@@ -391,11 +402,17 @@ mod tests {
     /// Return a tuple of p_cam, p_world, t_gt, rotation_gt
     fn easy_test_case() -> (na::Matrix3<f64>, na::Matrix3<f64>, na::Vector3<f64>, na::Matrix3<f64>) {
         // generate camera points (force positive z)
-        let p_cam = na::Matrix3::<f64>::new(
-            0.7145222331218005, 0.6997616555794328, 2.7801634549912415,
-            0.7253251306266671, 1.1639214982781518, 0.238599168957371,
-            0.43484773318930925, 0.3052619752472596, 0.29437234778903254,
-        );
+        let p_cam = {
+            let mut p_cam = na::Matrix3::<f64>::new(
+                0.7145222331218005, 0.6997616555794328, 2.7801634549912415,
+                0.7253251306266671, 1.1639214982781518, 0.238599168957371,
+                0.43484773318930925, 0.3052619752472596, 0.29437234778903254,
+            );
+            p_cam.set_column(0, &p_cam.column(0).normalize());
+            p_cam.set_column(1, &p_cam.column(1).normalize());
+            p_cam.set_column(2, &p_cam.column(2).normalize());
+            p_cam
+        };
 
         // generate random rotation and translation
         let t_gt: na::Vector3<f64> = na::Vector3::<f64>::new(
