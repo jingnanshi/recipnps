@@ -27,7 +27,7 @@ fn ransac(world_points: &na::Matrix3xX<f64>, bearing_vectors: &na::Matrix3xX<f64
     // sample 4 points (3 pts for p3p, 1 pt for choosing models
     let mut sampled_indices: Vec<&usize> = indices.iter().choose_multiple(&mut rng, 4);
 
-    let mut best_model : Option<Model> = None;
+    let mut best_model: Option<Model> = None;
 
     while (iterations < k as u32) & (iterations < max_iterations) & (skipped_count < max_skip) {
         p_w.set_column(0, &world_points.column(*sampled_indices[0]));
@@ -60,8 +60,8 @@ fn ransac(world_points: &na::Matrix3xX<f64>, bearing_vectors: &na::Matrix3xX<f64
         }
 
         // count the number of inliers within a distance threshold to the model
-        let dists_to_all = models[selected_model_idx].reprojection_dists_of(world_points.as_slice(),
-                                                                            bearing_vectors.as_slice());
+        let dists_to_all = models[selected_model_idx].reprojection_dists_of(&world_points,
+                                                                            &bearing_vectors);
         let mut inlier_count = 0;
         for i in 0..dists_to_all.shape().1 {
             if dists_to_all[i] < inlier_dist_threshold {
@@ -75,11 +75,11 @@ fn ransac(world_points: &na::Matrix3xX<f64>, bearing_vectors: &na::Matrix3xX<f64
             best_model.insert(models[selected_model_idx]);
 
             // Compute the k parameter (k=log(z)/log(1-w^n))
-            let w : f64 = (best_inliers_count as f64) / (world_points.shape().1 as f64);
-            let p_no_outliers : f64 = {
+            let w: f64 = (best_inliers_count as f64) / (world_points.shape().1 as f64);
+            let p_no_outliers: f64 = {
                 let mut p = 1.0 - w.powi(sampled_indices.len() as i32);
-                p = std::cmp::max(f64::EPSILON, p);
-                p = std::cmp::min(1.0 - f64::EPSILON, p);
+                p = p.max(f64::EPSILON);
+                p = p.min(1.0 - f64::EPSILON);
                 p
             };
 
@@ -93,4 +93,39 @@ fn ransac(world_points: &na::Matrix3xX<f64>, bearing_vectors: &na::Matrix3xX<f64
     }
 
     return best_model;
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::p3p::{kneip, fischler, grunert};
+    use nalgebra as na;
+    use rand::Rng;
+
+    #[test]
+    fn test_ransac() {
+        let mut rng = rand::thread_rng();
+        let t_gt: na::Vector3<f64> = rng.gen();
+        let r_gt: na::Rotation3<f64> = rng.gen();
+        let rotation_gt: na::Matrix3<f64> = r_gt.matrix().into_owned();
+
+        // generate random points with outliers
+        let n_points = 20;
+        let mut p_src = na::Matrix3xX::<f64>::new_random(n_points);
+        let mut p_tgt: na::Matrix3xX<f64> = rotation_gt * &p_src;
+        for (i, mut col) in p_tgt.column_iter_mut().enumerate() {
+            col += t_gt;
+        }
+
+        // add outliers
+        let n_outliers = 2;
+        for i in 0..n_outliers {
+            let mut new_column : na::Vector3<f64> = p_tgt.column(i).into();
+            new_column[0] += 10.0;
+            p_tgt.set_column(i, &new_column);
+        }
+
+        // test with ransac
+        let result = ransac(&p_src, &p_tgt, &fischler, 100, 0.1, 0.99);
+    }
 }
