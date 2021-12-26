@@ -49,7 +49,7 @@ fn ransac(world_points: &na::Matrix3xX<f64>, bearing_vectors: &na::Matrix3xX<f64
 
         // select model with the smallest reprojection cost
         let mut selected_model_idx = 0;
-        let mut min_cost: f64 = f64::NEG_INFINITY;
+        let mut min_cost: f64 = f64::INFINITY;
         let pt_idx = *sampled_indices[3];
         for i in 0..models.len() {
             let cost = models[i].reprojection_dist_of(world_points.column(pt_idx), bearing_vectors.column(pt_idx));
@@ -110,22 +110,36 @@ mod tests {
         let rotation_gt: na::Matrix3<f64> = r_gt.matrix().into_owned();
 
         // generate random points with outliers
-        let n_points = 20;
-        let mut p_src = na::Matrix3xX::<f64>::new_random(n_points);
-        let mut p_tgt: na::Matrix3xX<f64> = rotation_gt * &p_src;
-        for (i, mut col) in p_tgt.column_iter_mut().enumerate() {
-            col += t_gt;
-        }
-
-        // add outliers
-        let n_outliers = 2;
-        for i in 0..n_outliers {
-            let mut new_column : na::Vector3<f64> = p_tgt.column(i).into();
-            new_column[0] += 10.0;
-            p_tgt.set_column(i, &new_column);
-        }
+        let n_points = 10;
+        let p_src = na::Matrix3xX::<f64>::new_random(n_points);
+        let p_tgt: na::Matrix3xX<f64> = {
+            let mut p_tgt: na::Matrix3xX<f64> = rotation_gt * &p_src;
+            for (i, mut col) in p_tgt.column_iter_mut().enumerate() {
+                col += t_gt;
+            }
+            // add outliers
+            let n_outliers = 1;
+            for i in 0..n_outliers {
+                let mut new_column: na::Vector3<f64> = p_tgt.column(i).into();
+                new_column[0] += 10.0 * (i as f64 + 1.0);
+                new_column[1] -= 10.0 * (i as f64 + 1.0);
+                p_tgt.set_column(i, &new_column);
+            }
+            // normalize p_tgt to be bearing vectors
+            for (i, mut col) in p_tgt.column_iter_mut().enumerate() {
+                col /= col.norm();
+            }
+            p_tgt
+        };
 
         // test with ransac
-        let result = ransac(&p_src, &p_tgt, &fischler, 100, 0.1, 0.99);
+        let result = ransac(&p_src, &p_tgt, &fischler, 10, 0.1, 0.99);
+        match result {
+            Some(x) => {
+                assert!(x.rotation.relative_eq(&rotation_gt, 1e-7, 1e-7));
+                assert!(x.translation.relative_eq(&t_gt, 1e-7, 1e-7));
+            }
+            None => assert!(false, "RANSAC failed."),
+        }
     }
 }
