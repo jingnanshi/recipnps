@@ -520,10 +520,6 @@ mod tests {
         // ensure at least one solution is consistent with gt
         let mut flag: bool = false;
         for i in 0..solutions.len() {
-            println!("t_gt: \n {}", t_gt);
-            println!("t_est: \n {}", solutions[i].translation);
-            println!("R_gt: \n {}", rotation_gt);
-            println!("R_est: \n {}", solutions[i].rotation);
             let t_flag = solutions[i].translation.relative_eq(&t_gt, 1e-7, 1e-7);
             let r_flag = solutions[i].rotation.relative_eq(&rotation_gt, 1e-7, 1e-7);
             if t_flag & r_flag {
