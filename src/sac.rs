@@ -4,11 +4,11 @@ use rand::seq::IteratorRandom;
 use crate::model::Model;
 
 /// A RANSAC wrapper for P3P algorithms
-fn ransac(world_points: &na::Matrix3xX<f64>, bearing_vectors: &na::Matrix3xX<f64>,
-          solver: &dyn Fn(&na::Matrix3<f64>, &na::Matrix3<f64>) -> Vec<Model>,
-          max_iterations: u32,
-          inlier_dist_threshold: f64,
-          probability: f64) -> Option<Model> {
+pub fn ransac(world_points: &na::Matrix3xX<f64>, bearing_vectors: &na::Matrix3xX<f64>,
+              solver: &dyn Fn(&na::Matrix3<f64>, &na::Matrix3<f64>) -> Vec<Model>,
+              max_iterations: u32,
+              inlier_dist_threshold: f64,
+              probability: f64) -> Option<Model> {
 
     // parameters
     let mut iterations: u32 = 0;
