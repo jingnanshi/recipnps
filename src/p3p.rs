@@ -59,7 +59,7 @@ fn arun(p: &na::Matrix3<f64>, p_prime: &na::Matrix3<f64>) -> (na::Matrix3<f64>, 
 /// 331-356.
 ///
 /// # Example
-fn grunert(p_w: &na::Matrix3<f64>, p_i: &na::Matrix3<f64>) -> Vec<Model> {
+pub fn grunert(p_w: &na::Matrix3<f64>, p_i: &na::Matrix3<f64>) -> Vec<Model> {
     // Note: notation follows paper:
     // Haralick, Bert M., et al. "Review and analysis of solutions of the three point perspective
     // pose estimation problem." International journal of computer vision 13.3 (1994): 331-356.
@@ -149,7 +149,7 @@ fn grunert(p_w: &na::Matrix3<f64>, p_i: &na::Matrix3<f64>) -> Vec<Model> {
 /// 331-356.
 ///
 /// # Example
-fn fischler(p_w: &na::Matrix3<f64>, p_i: &na::Matrix3<f64>) -> Vec<Model> {
+pub fn fischler(p_w: &na::Matrix3<f64>, p_i: &na::Matrix3<f64>) -> Vec<Model> {
     // Note: notation follows paper:
     // Haralick, Bert M., et al. "Review and analysis of solutions of the three point perspective
     // pose estimation problem." International journal of computer vision 13.3 (1994): 331-356.
@@ -230,7 +230,7 @@ fn fischler(p_w: &na::Matrix3<f64>, p_i: &na::Matrix3<f64>) -> Vec<Model> {
 /// "A novel parametrization of the perspective-three-point problem for a direct computation of
 /// absolute camera position and orientation." CVPR 2011. IEEE, 2011.
 ///
-fn kneip(p_w: &na::Matrix3<f64>, p_i: &na::Matrix3<f64>) -> Vec<Model> {
+pub fn kneip(p_w: &na::Matrix3<f64>, p_i: &na::Matrix3<f64>) -> Vec<Model> {
     // check for degenerate case
     let mut p1: na::Vector3<f64> = p_w.column(0).into_owned();
     let mut p2: na::Vector3<f64> = p_w.column(1).into_owned();
