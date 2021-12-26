@@ -23,13 +23,13 @@ solutions = grunert(&world_points, &bearing_vectors);
 use recipnps::pnp::{pnp_ransac_fischler, pnp_ransac_grunert, pnp_ransac_kneip};
 
 // pnp with grunert's method + RANSAC
-let mut solution = pnp_ransac_grunert(&p_world, &p_i);
+let mut solution = pnp_ransac_grunert(&world_points, &bearing_vectors);
 
 // pnp with fischler's method + RANSAC
-solution = pnp_ransac_fischler(&p_world, &p_i);
+solution = pnp_ransac_fischler(&world_points, &bearing_vectors);
 
 // pnp with kneip's method + RANSAC
-solution = pnp_ransac_grunert(&p_world, &p_i);
+solution = pnp_ransac_grunert(&world_points, &bearing_vectors);
 ```
 
 See tests and documentation for more examples.
