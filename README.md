@@ -29,7 +29,7 @@ let mut solution = pnp_ransac_grunert(&world_points, &bearing_vectors);
 solution = pnp_ransac_fischler(&world_points, &bearing_vectors);
 
 // pnp with kneip's method + RANSAC
-solution = pnp_ransac_grunert(&world_points, &bearing_vectors);
+solution = pnp_ransac_kneip(&world_points, &bearing_vectors);
 ```
 
 See tests and documentation for more examples.
