@@ -251,8 +251,8 @@ pub fn kneip(p_w: &na::Matrix3<f64>, p_i: &na::Matrix3<f64>) -> Vec<Model> {
     let mut f3 = f3_og.clone();
 
     // compute transformation matrix T and feature vector f3
-    let mut e1 = f1;
-    let mut e3 = f1.cross(&f2);
+    let mut e1 = f1.normalize();
+    let mut e3 = f1.cross(&f2).normalize();
     let mut e2 = e3.cross(&e1);
     let mut tt = na::Matrix3::<f64>::from_rows(&[e1.transpose(), e2.transpose(), e3.transpose()]);
     debug_assert!(tt.is_special_orthogonal(1e-7));
@@ -368,7 +368,7 @@ pub fn kneip(p_w: &na::Matrix3<f64>, p_i: &na::Matrix3<f64>) -> Vec<Model> {
         // R^T p_world - R^T t = p_cam
         // rotation_est = R^T
         let rotation_est: na::Matrix3<f64> = {
-            let mut rr = na::Matrix3::<f64>::new(
+            let rr = na::Matrix3::<f64>::new(
                 -cos_alpha, -sin_alpha * cos_theta, -sin_alpha * sin_theta,
                 sin_alpha, -cos_alpha * cos_theta, -cos_alpha * sin_theta,
                 0.0, -sin_theta, cos_theta,
@@ -457,7 +457,7 @@ mod tests {
         let (rotation_est, t_est) = arun(&p_src, &p_tgt);
         assert!(rotation_est.is_special_orthogonal(1e-7));
         // check estimated against gt
-        assert!(rotation_est.relative_eq(&rotation_gt, 1e-7, 1e-7));
+        assert!(rotation_est.relative_eq(&rotation_gt, 1e-5, 1e-5));
         assert!(t_est.relative_eq(&t_gt, 1e-7, 1e-7));
     }
 
@@ -467,7 +467,7 @@ mod tests {
 
         // get bearing vectors for the points in camera frame
         let mut p_i = p_cam;
-        p_i.column_iter_mut().for_each(|mut c| c /= c[2]);
+        p_i.column_iter_mut().for_each(|mut c| c /= c.norm());
 
         // run grunert's p3p
         let solutions = grunert(&p_world, &p_i);
@@ -490,7 +490,7 @@ mod tests {
 
         // get bearing vectors for the points in camera frame
         let mut p_i = p_cam;
-        p_i.column_iter_mut().for_each(|mut c| c /= c[2]);
+        p_i.column_iter_mut().for_each(|mut c| c /= c.norm());
 
         // run fischler's p3p
         let solutions = fischler(&p_world, &p_i);
@@ -513,7 +513,7 @@ mod tests {
 
         // get bearing vectors for the points in camera frame
         let mut p_i = p_cam;
-        p_i.column_iter_mut().for_each(|mut c| c /= c[2]);
+        p_i.column_iter_mut().for_each(|mut c| c /= c.norm());
 
         // run kneip's p3p
         let solutions = kneip(&p_world, &p_i);

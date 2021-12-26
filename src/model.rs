@@ -1,5 +1,4 @@
 use nalgebra as na;
-use nalgebra::U3;
 
 #[derive(Copy, Clone, Debug)]
 pub struct Model {

@@ -1,5 +1,4 @@
 use nalgebra as na;
-use rand::Rng;
 use rand::seq::IteratorRandom;
 use crate::model::Model;
 
@@ -23,7 +22,7 @@ pub fn ransac(world_points: &na::Matrix3xX<f64>, bearing_vectors: &na::Matrix3xX
 
     let mut p_w = na::Matrix3::<f64>::zeros();
     let mut p_i = na::Matrix3::<f64>::zeros();
-    let mut indices: Vec<usize> = (0..world_points.shape().1).collect();
+    let indices: Vec<usize> = (0..world_points.shape().1).collect();
     // sample 4 points (3 pts for p3p, 1 pt for choosing models
     let mut sampled_indices: Vec<&usize> = indices.iter().choose_multiple(&mut rng, 4);
 
@@ -133,7 +132,7 @@ mod tests {
         };
 
         // test with ransac
-        let result = ransac(&p_src, &p_tgt, &fischler, 10, 0.1, 0.99);
+        let result = ransac(&p_src, &p_tgt, &fischler, 50, 0.1, 0.95);
         match result {
             Some(x) => {
                 assert!(x.rotation.relative_eq(&rotation_gt, 1e-7, 1e-7));
