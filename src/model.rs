@@ -1,7 +1,7 @@
 use nalgebra as na;
 use nalgebra::U3;
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub struct Model {
     pub rotation: na::Matrix3<f64>,
     pub translation: na::Vector3<f64>,
@@ -31,6 +31,7 @@ impl Model {
         let mut reprojections: na::Matrix3xX<f64> = self.rotation * world_points;
         for (_i, mut column) in reprojections.column_iter_mut().enumerate() {
             column += self.translation;
+            column /= column.norm();
         }
 
         let cos_angles = (reprojections.transpose() * bearing_vectors).diagonal();
