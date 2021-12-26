@@ -1,6 +1,7 @@
 use nalgebra as na;
 use nalgebra::U3;
 
+#[derive(Copy, Clone)]
 pub struct Model {
     pub rotation: na::Matrix3<f64>,
     pub translation: na::Vector3<f64>,
@@ -25,8 +26,8 @@ impl Model {
     }
 
     /// Calculate the reprojection costs of pairs of bearing vectors and world points
-    pub fn reprojection_dists_of(&self, world_points: na::MatrixSlice3xX<f64>,
-                                 bearing_vectors: na::MatrixSlice3xX<f64>) -> na::Matrix1xX<f64> {
+    pub fn reprojection_dists_of(&self, world_points: &na::Matrix3xX<f64>,
+                                 bearing_vectors: &na::Matrix3xX<f64>) -> na::Matrix1xX<f64> {
         let mut reprojections: na::Matrix3xX<f64> = self.rotation * world_points;
         for (_i, mut column) in reprojections.column_iter_mut().enumerate() {
             column += self.translation;
