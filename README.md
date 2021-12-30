@@ -2,6 +2,7 @@
 
 Simple recipes for Perspective-n-Points (PnP).
 Currently includes P3P routines and PnP routines with RANSAC and P3P solvers.
+See the companion blog post [here](https://jingnanshi.com/blog/pnp_minimal.html).
 
 ## Examples
 ### P3P
